@@ -2,6 +2,11 @@
 
 This document provides detailed step-by-step instructions for implementing the AWS VPC connectivity project.
 
+## Project Goal
+The goal of this project was to set up a secure AWS VPC with both public and private subnets.
+- Public server (EC2 instance in public subnet) should connect to the internet
+- Private server (EC2 instance in private subnet) should not be exposed to the internet directly but should be accessible from the public server
+
 ## Step 1: Creating the VPC
 
 ### Configuration
@@ -15,14 +20,8 @@ This document provides detailed step-by-step instructions for implementing the A
    - **NAT Gateway**: None (not needed for this project)
    - **DNS options**: Enabled
 
-![VPC Creation Workflow](./images/01-vpc-creation-workflow.png)
-
 ### 💡 Why This Configuration?
 Splitting the network into public and private subnets allows for better security. Only the public subnet gets internet access through the Internet Gateway.
-
-![VPC Overview](./images/02-vpc-overview.png)
-
-![VPC Resource Map](./images/03-vpc-resource-map.png)
 
 ---
 
@@ -52,8 +51,6 @@ NACLs act as a stateless firewall at the subnet level, providing an additional l
 **Outbound Rules:**
 - Allow all traffic
 
-![Public Security Group Configuration](./images/04-public-security-group.png)
-
 ### Private Security Group
 **Inbound Rules:**
 - SSH (22) from Public Security Group only
@@ -61,8 +58,6 @@ NACLs act as a stateless firewall at the subnet level, providing an additional l
 
 **Outbound Rules:**
 - Allow all traffic
-
-![Private Security Group Configuration](./images/05-private-security-group.png)
 
 ### 💡 Why This Configuration?
 Security groups are stateful and attached to EC2 instances. This setup:
@@ -81,8 +76,6 @@ Security groups are stateful and attached to EC2 instances. This setup:
 - **Auto-assign Public IP**: Enabled
 - **Security group**: Public Security Group
 
-![Public Server Details](./images/06-public-server-details.png)
-
 ### Private Server Configuration
 - **AMI**: Amazon Linux 2023
 - **Instance type**: t2.micro
@@ -90,16 +83,12 @@ Security groups are stateful and attached to EC2 instances. This setup:
 - **Auto-assign Public IP**: Disabled
 - **Security group**: Private Security Group
 
-![Private Server Details](./images/07-private-server-details.png)
-
 ---
 
 ## Step 5: Connecting to Public Server
 
 ### Initial Connection Attempt (Error)
 Attempted to connect using **EC2 Instance Connect** → Connection failed
-
-![Connection Error](./images/08-connection-error.png)
 
 ### Root Cause Analysis
 **Issue**: Public Security Group didn't allow SSH traffic
@@ -111,8 +100,6 @@ Attempted to connect using **EC2 Instance Connect** → Connection failed
    - **Protocol**: TCP
    - **Port**: 22
    - **Source**: Anywhere-IPv4 (0.0.0.0/0)
-
-![Security Group SSH Fix](./images/09-ssh-rule-fix.png)
 
 ### 💡 Why Anywhere-IPv4?
 EC2 Instance Connect uses a wide range of IP addresses. For production environments, restrict this to known CIDR ranges or use AWS Systems Manager Session Manager for more secure access.
@@ -142,8 +129,6 @@ From public server, attempted to ping private server's IP (`10.0.1.x`) → **Fai
 - **Type**: All ICMP - IPv4
 - **Source**: Public Security Group
 
-![Network ACL ICMP Rules](./images/10-nacl-icmp-rules.png)
-
 ### 💡 Why Both NACLs and Security Groups?
 - **NACLs are stateless**: Rules must be added in both directions
 - **Security Groups are stateful**: Return traffic is automatically allowed
@@ -169,8 +154,6 @@ curl https://www.google.com
 ```
 **❌ Result**: Failed (as expected) - confirmed no internet access
 
-![Internet Connectivity Test](./images/11-internet-test.png)
-
 ### 💡 Why This Works/Doesn't Work?
 - **Public Server**: Route table points to Internet Gateway + Security Group allows outbound traffic
 - **Private Server**: No route to Internet Gateway = no internet access (security achieved)
@@ -192,8 +175,6 @@ curl https://www.google.com
 - ✅ Private server has no internet access
 - ✅ Network segmentation properly implemented
 
-![Final Architecture Diagram](./images/12-final-architecture.png)
-
 ---
 
 ## Next Steps
@@ -202,5 +183,3 @@ curl https://www.google.com
 2. **Monitoring**: Set up CloudWatch for network monitoring
 3. **Backup**: Consider automated backup strategies
 4. **Scaling**: Plan for multi-AZ deployment if needed
-
-For troubleshooting common issues, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
